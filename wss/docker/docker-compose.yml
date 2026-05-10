@@ -1,11 +1,5 @@
 services:
 
-  memcached:
-    image: memcached:1.6-alpine
-    networks:
-      - wss
-    restart: unless-stopped
-
   server:
     image: wss-server:dev
     build:
@@ -23,7 +17,7 @@ services:
       WSS_CA_KEY: /certs/ca.key
       WSS_SERVER_CERT: /certs/server.crt
       WSS_SERVER_KEY: /certs/server.key
-      WSS_MEMCACHED_HOST: memcached
+      WSS_MEMCACHED_HOST: "127.0.0.1"
       WSS_MEMCACHED_PORT: "11211"
       WSS_MGMT_SOCKET: "tcp://0.0.0.0:8766"
     volumes:
@@ -32,8 +26,6 @@ services:
     ports:
       - "${WSS_PORT:-8765}:8765"
       - "${WSS_MGMT_PORT:-8766}:8766"
-    depends_on:
-      - memcached
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c",

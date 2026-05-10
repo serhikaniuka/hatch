@@ -18,4 +18,7 @@ export WSS_CA_KEY="$CERTS_WORK/ca.key"
 export WSS_SERVER_CERT="$CERTS_WORK/server.crt"
 export WSS_SERVER_KEY="$CERTS_WORK/server.key"
 
+# Start memcached bound to localhost only; runs alongside the server process
+gosu wss memcached -l 127.0.0.1 -p 11211 -m 64 &
+
 exec gosu wss python -m server.main

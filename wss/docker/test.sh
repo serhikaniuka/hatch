@@ -17,8 +17,8 @@ step "Building images ..."
 docker build -f "$SCRIPT_DIR/Dockerfile.server" -t wss-server:dev "$SCRIPT_DIR/.."
 docker build -f "$SCRIPT_DIR/Dockerfile.client" -t wss-client:dev "$SCRIPT_DIR/.."
 
-step "Starting server + memcached ..."
-$COMPOSE up -d server memcached
+step "Starting server ..."
+$COMPOSE up -d server
 
 # 3. Wait for server health check
 step "Waiting for server to become healthy ..."
