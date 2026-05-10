@@ -1,163 +1,174 @@
 #!/usr/bin/env python3
 """
-WSS management CLI.
+WSS interactive management shell.
 
-Run from the wss/ directory:
-    python -m manager.main [OPTIONS] COMMAND [ARGS]...
+    python -m manager.main
+
+Type /help inside the shell for available commands.
 """
+import shlex
 import sys
+from pathlib import Path
 
-import click
+from prompt_toolkit import PromptSession
+from prompt_toolkit.completion import NestedCompleter
+from prompt_toolkit.formatted_text import HTML
+from prompt_toolkit.history import FileHistory
+from prompt_toolkit.styles import Style
 
-from .cache import CacheReader
+from .commands import (
+    cmd_client_add,
+    cmd_client_list,
+    cmd_client_renew,
+    cmd_client_revoke,
+    cmd_client_show,
+    cmd_connected,
+    cmd_server_ping,
+    cmd_server_status,
+)
 from .config import config
-from .db import (
-    create_client,
-    get_cert,
-    get_client,
-    get_connection,
-    list_clients,
-    revoke_cert,
-    update_allow_to,
-)
-from .display import (
-    print_client_detail,
-    print_client_table,
-    print_connected_table,
-)
 from .nng_client import MgmtClient
 
+# ── command registry ───────────────────────────────────────────────────────────
 
-def _db():
-    return get_connection(config.db_path)
+# Keys are the command words typed by the user (one or two tokens joined by space).
+# Values are (handler, synopsis, description).
+REGISTRY: list[tuple[str, str, str, object]] = [
+    ("/help",           "",                   "Show this help",                          None),
+    ("/client add",     "[--days N]",          "Register a new client",                   cmd_client_add),
+    ("/client list",    "",                    "List all registered clients",             cmd_client_list),
+    ("/client show",    "<id>",                "Show details, certificate, live state",   cmd_client_show),
+    ("/client renew",   "<id> [--days N]",     "Extend enrollment window (now + N days)", cmd_client_renew),
+    ("/client revoke",  "<id>",                "Revoke certificate — allows re-enroll",   cmd_client_revoke),
+    ("/connected",      "",                    "Show currently connected clients",        cmd_connected),
+    ("/server ping",    "",                    "Check NNG management socket",             cmd_server_ping),
+    ("/server status",  "",                    "Show server uptime via NNG",              cmd_server_status),
+    ("/exit",           "",                    "Quit",                                    None),
+]
 
+DISPATCH: dict[str, object] = {cmd: fn for cmd, _, _, fn in REGISTRY if fn is not None}
 
-def _cache():
-    return CacheReader(config.memcached_host, config.memcached_port)
+# ── tab-completion tree ────────────────────────────────────────────────────────
 
+_COMPLETER = NestedCompleter.from_nested_dict({
+    "/help":    None,
+    "/client": {
+        "add":    None,
+        "list":   None,
+        "show":   None,
+        "renew":  None,
+        "revoke": None,
+    },
+    "/connected":  None,
+    "/server": {
+        "ping":   None,
+        "status": None,
+    },
+    "/exit": None,
+})
 
-# ── top-level group ────────────────────────────────────────────────────────────
+_STYLE = Style.from_dict({
+    "prompt.tool":   "bold ansicyan",
+    "prompt.arrow":  "bold",
+})
 
-@click.group()
-def cli():
-    """WSS server management tool."""
+_HISTORY_FILE = Path.home() / ".wss-mgr-history"
 
+# ── startup banner ─────────────────────────────────────────────────────────────
 
-# ── client commands ────────────────────────────────────────────────────────────
+def _banner() -> None:
+    nng_ok = MgmtClient(config.mgmt_socket, timeout_ms=1500).ping()
+    nng_mark = "✓" if nng_ok else "✗ (server not running or NNG not reachable)"
+    print()
+    print("  ┌─ WSS Manager ────────────────────────────────────┐")
+    print(f"  │  DB        : {config.db_path}")
+    print(f"  │  Memcached : {config.memcached_host}:{config.memcached_port}")
+    print(f"  │  NNG       : {config.mgmt_socket}  {nng_mark}")
+    print("  │")
+    print("  │  Type /help for available commands.")
+    print("  └──────────────────────────────────────────────────┘")
+    print()
 
-@cli.group()
-def client():
-    """Manage WSS clients."""
+# ── help ───────────────────────────────────────────────────────────────────────
 
+def _cmd_help() -> None:
+    w_cmd  = max(len(cmd)  for cmd, _, _, _ in REGISTRY)
+    w_args = max(len(args) for _, args, _, _ in REGISTRY)
+    print()
+    for cmd, args, desc, _ in REGISTRY:
+        print(f"  {cmd:<{w_cmd}}  {args:<{w_args}}  {desc}")
+    print()
 
-@client.command("add")
-@click.option("--days", default=1, show_default=True,
-              help="Enrollment window in days.")
-def client_add(days: int) -> None:
-    """Register a new client and print its UUID."""
-    conn = _db()
-    client_id = create_client(conn, days=days)
-    click.echo(client_id)
+# ── dispatch ───────────────────────────────────────────────────────────────────
 
-
-@client.command("list")
-def client_list() -> None:
-    """List all registered clients."""
-    conn = _db()
-    print_client_table(list_clients(conn))
-
-
-@client.command("show")
-@click.argument("client_id")
-def client_show(client_id: str) -> None:
-    """Show full details and certificate info for CLIENT_ID."""
-    conn = _db()
-    c = get_client(conn, client_id)
-    if c is None:
-        click.echo(f"Client not found: {client_id}", err=True)
-        sys.exit(1)
-    cert = get_cert(conn, client_id)
-    state = _cache().get_client_state(client_id)
-    print_client_detail(c, cert, state)
-
-
-@client.command("renew")
-@click.argument("client_id")
-@click.option("--days", default=1, show_default=True,
-              help="Days from now for the new allow_to.")
-def client_renew(client_id: str, days: int) -> None:
-    """Extend the enrollment window: allow_to = now + N days."""
-    conn = _db()
-    if not update_allow_to(conn, client_id, days=days):
-        click.echo(f"Client not found: {client_id}", err=True)
-        sys.exit(1)
-    click.echo(f"Enrollment window extended by {days} day(s).")
-
-
-@client.command("revoke")
-@click.argument("client_id")
-@click.confirmation_option(prompt="Revoke certificate and allow re-enrollment?")
-def client_revoke(client_id: str) -> None:
-    """Delete a client's certificate so it can re-enroll."""
-    conn = _db()
-    if revoke_cert(conn, client_id):
-        click.echo("Certificate revoked. Client may now re-enroll.")
-    else:
-        click.echo("No certificate on record for that client.")
-
-
-# ── connected ─────────────────────────────────────────────────────────────────
-
-@cli.command("connected")
-def connected() -> None:
-    """Show clients currently connected (from Memcached)."""
-    conn = _db()
-    all_ids = [c["id"] for c in list_clients(conn)]
-    rows = _cache().get_connected_client_ids(all_ids)
-    print_connected_table(rows)
-
-
-# ── server commands ────────────────────────────────────────────────────────────
-
-@cli.group()
-def server():
-    """Talk to the running server via NNG."""
-
-
-@server.command("ping")
-def server_ping() -> None:
-    """Check if the server management socket is reachable."""
-    mgmt = MgmtClient(config.mgmt_socket)
-    if mgmt.ping():
-        click.echo(f"Server is reachable  ({config.mgmt_socket})")
-    else:
-        click.echo(f"Server is NOT reachable  ({config.mgmt_socket})", err=True)
-        sys.exit(1)
-
-
-@server.command("status")
-def server_status() -> None:
-    """Get server uptime and config via NNG."""
-    mgmt = MgmtClient(config.mgmt_socket)
+def _dispatch(line: str) -> bool:
+    """Parse and run one command line. Returns False when the user wants to exit."""
     try:
-        resp = mgmt.status()
-    except Exception as exc:
-        click.echo(f"Failed to connect: {exc}", err=True)
-        sys.exit(1)
+        tokens = shlex.split(line)
+    except ValueError as exc:
+        print(f"  Parse error: {exc}")
+        return True
 
-    if not resp.get("ok"):
-        click.echo(f"Server error: {resp.get('error')}", err=True)
-        sys.exit(1)
+    if not tokens:
+        return True
 
-    r = resp["result"]
-    uptime = r.get("uptime_seconds", 0)
-    h, rem = divmod(uptime, 3600)
-    m, s = divmod(rem, 60)
-    click.echo(f"Uptime        : {h:02d}:{m:02d}:{s:02d}")
-    click.echo(f"Mgmt socket   : {r.get('mgmt_socket', '-')}")
+    first = tokens[0].lower()
+    if first in ("/exit", "/quit", "/q"):
+        return False
+    if first == "/help":
+        _cmd_help()
+        return True
 
+    # Try two-word key first, then one-word
+    for width in (2, 1):
+        key = " ".join(tokens[:width])
+        if key in DISPATCH:
+            try:
+                DISPATCH[key](tokens[width:])
+            except KeyboardInterrupt:
+                print()
+            except Exception as exc:
+                print(f"  Error: {exc}")
+            return True
 
-# ── entry point ────────────────────────────────────────────────────────────────
+    print(f"  Unknown command: {tokens[0]}  (type /help)")
+    return True
+
+# ── main loop ──────────────────────────────────────────────────────────────────
+
+def main() -> None:
+    _banner()
+
+    session: PromptSession = PromptSession(
+        history=FileHistory(str(_HISTORY_FILE)),
+        completer=_COMPLETER,
+        complete_while_typing=True,
+        style=_STYLE,
+    )
+
+    while True:
+        try:
+            line = session.prompt(
+                HTML("<prompt.tool>wss-mgr</prompt.tool> <prompt.arrow>❯</prompt.arrow> ")
+            )
+        except KeyboardInterrupt:
+            # Ctrl-C cancels the current line, like a normal shell
+            continue
+        except EOFError:
+            # Ctrl-D exits
+            break
+
+        line = line.strip()
+        if not line:
+            continue
+        if not line.startswith("/"):
+            print("  Commands start with /  (type /help)")
+            continue
+        if not _dispatch(line):
+            break
+
+    print("\n  Goodbye.\n")
+
 
 if __name__ == "__main__":
-    cli()
+    main()
