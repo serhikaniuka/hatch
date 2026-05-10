@@ -21,7 +21,7 @@ services:
       WSS_MEMCACHED_PORT: "11211"
       WSS_MGMT_SOCKET: "tcp://0.0.0.0:8766"
     volumes:
-      - server_data:/data
+      - ./data:/data
       - ./certs:/certs:ro
     ports:
       - "${WSS_PORT:-8765}:8765"
@@ -60,7 +60,6 @@ services:
     restart: "no"
 
 volumes:
-  server_data:
   client_data:
 
 networks:

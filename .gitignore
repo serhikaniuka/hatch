@@ -5,6 +5,9 @@
 .env
 *.env
 
+# Runtime data (bind-mounted into Docker containers)
+wss/docker/data/
+
 # Python
 __pycache__/
 *.pyc
