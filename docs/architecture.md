@@ -43,7 +43,7 @@ Async WebSocket server (Python `websockets`) listening on port 8765 with TLS. Su
 - **Enrollment** — client without a certificate; server validates a UUID enrollment window, signs a CSR, and issues a certificate.
 - **Persistent** — client authenticates with its signed certificate (mTLS); heartbeat ping/pong every 30 s; server can push `MESSAGE` frames.
 
-Storage: SQLite for the client registry and certificates; Memcached for ephemeral connection state (TTL 1 h).
+Storage: SQLite (`wss/docker/data/wss.db` on the host, bind-mounted into the container at `/data/wss.db`) for the client registry and certificates; Memcached (running inside the server container, bound to `127.0.0.1:11211`) for ephemeral connection state (TTL 1 h).
 
 ### Client (`wss/client/`)
 
@@ -165,7 +165,8 @@ Developer / home server
         │         │
         │  wss/client ──── mTLS wss:// ──────► wss/server ── NNG :8766 ── wss-mgr
         │                                              │
-        │                                         SQLite + Memcached
+        │                                         SQLite (host bind mount)
+        │                                         Memcached (in-container)
         │
         │  SSH
         ▼
@@ -196,6 +197,8 @@ Developer / home server
 │  └──────────────────────────────────────┘                        │
 │                                                                  │
 │  wss/server  (port 8765 mTLS)                                    │
+│    ├── memcached  (127.0.0.1:11211, in-container)                │
+│    └── wss.db     (bind mount ← wss/docker/data/wss.db)          │
 │  wss-mgr     (NNG tcp://127.0.0.1:8766)                          │
 └──────────────────────────────────────────────────────────────────┘
 
