@@ -25,11 +25,13 @@ services:
       WSS_SERVER_KEY: /certs/server.key
       WSS_MEMCACHED_HOST: memcached
       WSS_MEMCACHED_PORT: "11211"
+      WSS_MGMT_SOCKET: "tcp://0.0.0.0:8766"
     volumes:
       - server_data:/data
       - ./certs:/certs:ro
     ports:
       - "${WSS_PORT:-8765}:8765"
+      - "${WSS_MGMT_PORT:-8766}:8766"
     depends_on:
       - memcached
     restart: unless-stopped

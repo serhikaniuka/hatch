@@ -16,6 +16,7 @@ class ServerConfig:
     memcached_port: int = int(os.environ.get("WSS_MEMCACHED_PORT", "11211"))
     client_state_ttl: int = int(os.environ.get("WSS_CLIENT_STATE_TTL", "3600"))
     recent_connections_max: int = 100
+    mgmt_socket: str = os.environ.get("WSS_MGMT_SOCKET", "tcp://127.0.0.1:8766")
 
 
 config = ServerConfig()

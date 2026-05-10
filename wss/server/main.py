@@ -8,6 +8,7 @@ from .cache import CacheClient
 from .config import config
 from .db import get_connection, initialize_schema
 from .handler import connection_handler
+from .mgmt import serve_mgmt
 from .ssl_context import build_server_ssl_context
 
 logging.basicConfig(
@@ -39,7 +40,10 @@ async def serve() -> None:
 
     logger.info("Starting WSS server on wss://%s:%s", config.host, config.port)
     async with websockets.serve(handler, config.host, config.port, ssl=ssl_ctx):
-        await asyncio.Future()
+        await asyncio.gather(
+            asyncio.Future(),
+            serve_mgmt(),
+        )
 
 
 if __name__ == "__main__":
