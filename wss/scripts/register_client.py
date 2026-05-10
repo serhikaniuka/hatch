@@ -30,7 +30,7 @@ def main() -> None:
         sys.exit(1)
 
     client_id = str(uuid.uuid4())
-    allow_to = datetime.datetime.utcnow() + datetime.timedelta(days=args.days)
+    allow_to = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(days=args.days)
 
     db_path = Path(args.db)
     db_path.parent.mkdir(parents=True, exist_ok=True)
