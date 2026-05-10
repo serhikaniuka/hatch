@@ -1,0 +1,9 @@
+certs/
+*.key
+*.crt
+*.pem
+*.csr
+*.db
+*.sqlite3
+.env
+client/data/

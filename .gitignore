@@ -1,0 +1,14 @@
+# SSH keys — never commit
+.ssh/
+
+# Secrets
+.env
+*.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# macOS
+.DS_Store

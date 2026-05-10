@@ -1,0 +1,19 @@
+services:
+  claude-code:
+    build: .
+    image: claude-code:latest
+    container_name: claude-code
+    restart: unless-stopped
+    stdin_open: true
+    tty: true
+    working_dir: /home/serhiy/projects
+    volumes:
+      - ${HOST_PROJECTS_DIR:-/home/ec2-user/projects}:/home/serhiy/projects
+      - claude-config:/home/serhiy/.claude
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    env_file:
+      - .env
+
+volumes:
+  claude-config:
