@@ -3,7 +3,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-COMPOSE="docker compose -f $SCRIPT_DIR/docker-compose.yml"
+# Prefer 'docker compose' (plugin) if available, fall back to 'docker-compose' (standalone)
+if docker compose version &>/dev/null 2>&1; then
+    COMPOSE="docker compose -f $SCRIPT_DIR/docker-compose.yml"
+else
+    COMPOSE="docker-compose -f $SCRIPT_DIR/docker-compose.yml"
+fi
 
 step() { echo ""; echo "==> $*"; }
 
@@ -52,8 +57,38 @@ $COMPOSE --profile client run --rm \
     -e WSS_CLIENT_ID="$CLIENT_ID" \
     client
 
-# 6. Persistent run (client uses the issued certificate)
-step "Starting persistent connection (runs until you press Ctrl-C) ..."
-$COMPOSE --profile client run --rm client
+# 6. Persistent run — detached so the script can verify and then clean up
+step "Starting persistent connection ..."
+$COMPOSE --profile client up -d client
+sleep 5
+echo ""
+echo "    Client logs:"
+docker logs docker-client-1 2>&1 | sed 's/^/    /'
+
+# 7. Verify client state via NNG management socket
+step "Querying client management socket ..."
+docker exec docker-client-1 python3 -c "
+import json, pynng
+for cmd in ['ping', 'status', 'cert']:
+    with pynng.Req0(dial='tcp://127.0.0.1:8767', recv_timeout=3000, send_timeout=3000) as s:
+        s.send(json.dumps({'cmd': cmd}).encode())
+        resp = json.loads(s.recv())
+    print(f'  [{cmd}] ok={resp[\"ok\"]}', end='')
+    if cmd == 'status' and resp.get('ok'):
+        print(f'  connection={resp[\"result\"][\"connection\"]}', end='')
+    print()
+"
+
+# 8. Verify server sees the client (via wss-mgr NNG)
+step "Querying server management socket ..."
+docker exec docker-server-1 python3 -c "
+import json, pynng
+with pynng.Req0(dial='tcp://127.0.0.1:8766', recv_timeout=3000, send_timeout=3000) as s:
+    s.send(json.dumps({'cmd': 'status'}).encode())
+    resp = json.loads(s.recv())
+print(f'  server uptime: {resp[\"result\"][\"uptime_seconds\"]}s')
+"
+
+$COMPOSE --profile client stop client 2>/dev/null || true
 
 step "Test complete."
