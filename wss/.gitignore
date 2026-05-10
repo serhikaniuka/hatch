@@ -1,4 +1,5 @@
 certs/
+docker/certs/
 *.key
 *.crt
 *.pem

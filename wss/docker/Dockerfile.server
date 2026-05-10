@@ -1,0 +1,19 @@
+FROM python:3.13-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends gosu \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN groupadd -r wss && useradd -r -g wss -d /app -s /sbin/nologin wss
+
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY server/ ./server/
+COPY scripts/ ./scripts/
+COPY docker/docker-entrypoint-server.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+RUN mkdir -p /data && chown -R wss:wss /app /data
+
+ENTRYPOINT ["/entrypoint.sh"]
