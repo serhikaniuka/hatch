@@ -10,6 +10,7 @@ class ClientConfig:
     data_dir: Path = Path(
         os.environ.get("WSS_CLIENT_DATA_DIR", str(_BASE / "client" / "data"))
     )
+    mgmt_socket: str = os.environ.get("WSS_CLIENT_MGMT_SOCKET", "tcp://127.0.0.1:8767")
 
     @property
     def client_id_file(self) -> Path:
