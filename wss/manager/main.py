@@ -45,7 +45,7 @@ REGISTRY: list[tuple[str, str, str, object]] = [
     ("/connected",      "",                    "Show currently connected clients",        cmd_connected),
     ("/server ping",    "",                    "Check NNG management socket",             cmd_server_ping),
     ("/server status",  "",                    "Show server uptime via NNG",              cmd_server_status),
-    ("/tunnel open",    "<id> <client-port>",  "Open reverse SSH tunnel from client",     cmd_tunnel_open),
+    ("/tunnel open",    "<id> <port|ssh|vnc>", "Open reverse SSH tunnel from client",     cmd_tunnel_open),
     ("/tunnel list",    "",                    "List reserved tunnel ports",              cmd_tunnel_list),
     ("/exit",           "",                    "Quit",                                    None),
 ]

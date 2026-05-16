@@ -141,17 +141,28 @@ def cmd_server_ping(_args: list[str]) -> None:
     print(f"  Server {status}  ({config.mgmt_socket})")
 
 
+_PORT_NAMES: dict[str, int] = {
+    "ssh": 22,
+    "vnc": 5901,
+}
+
+
 def cmd_tunnel_open(args: list[str]) -> None:
-    """/tunnel open <client-id> <client-port>"""
+    """/tunnel open <client-id> <port|ssh|vnc>"""
     if len(args) < 2:
-        print("  Usage: /tunnel open <client-id> <client-port>")
+        print("  Usage: /tunnel open <client-id> <port|ssh|vnc>")
         return
     client_id_prefix, port_str = args[0], args[1]
-    try:
-        client_port = int(port_str)
-    except ValueError:
-        print(f"  Invalid port: {port_str!r}")
-        return
+    port_str_lower = port_str.lower()
+    if port_str_lower in _PORT_NAMES:
+        client_port = _PORT_NAMES[port_str_lower]
+    else:
+        try:
+            client_port = int(port_str)
+        except ValueError:
+            names = ", ".join(f"{k}={v}" for k, v in _PORT_NAMES.items())
+            print(f"  Invalid port: {port_str!r}  (named ports: {names})")
+            return
 
     conn = _db()
     c = _resolve(conn, client_id_prefix)
