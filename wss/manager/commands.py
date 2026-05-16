@@ -127,10 +127,11 @@ def cmd_client_revoke(args: list[str]) -> None:
 
 def cmd_connected(_args: list[str]) -> None:
     """/connected"""
-    all_ids = [c["id"] for c in list_clients(_db())]
-    rows = _cache().get_connected_client_ids(all_ids)
+    clients = list_clients(_db())
+    client_map = {c["id"]: c for c in clients}
+    rows = _cache().get_connected_client_ids(list(client_map))
     print()
-    print_connected_table(rows)
+    print_connected_table(rows, client_map)
     print()
 
 

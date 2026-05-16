@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import socket
 import tempfile
 from datetime import datetime, timezone
 
@@ -68,6 +69,7 @@ async def run_persistent(client_id: str) -> None:
                 await ws.send(json.dumps({
                     "type": "SSH_KEY_REGISTER",
                     "public_key": pub_key,
+                    "hostname": socket.gethostname(),
                 }))
 
                 attempt = 0

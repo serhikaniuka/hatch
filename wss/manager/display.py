@@ -40,30 +40,46 @@ def print_client_table(clients: list[dict]) -> None:
         return
     rows = []
     for c in clients:
+        num = c.get("client_num")
         rows.append([
+            f"#{num}" if num is not None else "-",
+            c.get("hostname") or "-",
             c["id"],
             _enrollment_status(c.get("allow_to", "")),
-            c.get("allow_to", "-"),
             "yes" if c.get("fingerprint") else "no",
             _rel(c.get("created_at", "")),
         ])
     print(tabulate(rows,
-                   headers=["UUID", "Enrollment", "Allow-to (UTC)", "Cert", "Created"],
+                   headers=["#", "Hostname", "UUID", "Enrollment", "Cert", "Created"],
                    tablefmt="simple"))
 
 
-def print_connected_table(rows: list[dict]) -> None:
+def print_connected_table(rows: list[dict], client_map: dict | None = None) -> None:
     if not rows:
         print("No clients currently connected.")
         return
-    data = [
-        [r["client_id"], r.get("ip", "-"), _rel(r.get("last_seen", ""))]
-        for r in rows
-    ]
-    print(tabulate(data, headers=["Client ID", "IP", "Last seen"], tablefmt="simple"))
+    client_map = client_map or {}
+    data = []
+    for r in rows:
+        cid = r["client_id"]
+        info = client_map.get(cid, {})
+        num = info.get("client_num")
+        data.append([
+            f"#{num}" if num is not None else "-",
+            info.get("hostname") or "-",
+            cid,
+            r.get("ip", "-"),
+            _rel(r.get("last_seen", "")),
+        ])
+    print(tabulate(data,
+                   headers=["#", "Hostname", "Client ID", "IP", "Last seen"],
+                   tablefmt="simple"))
 
 
 def print_client_detail(client: dict, cert: dict | None, state: dict | None) -> None:
+    num = client.get("client_num")
+    print(f"Client #    : {num if num is not None else '(not yet connected)'}")
+    print(f"Hostname    : {client.get('hostname') or '-'}")
     print(f"Client ID   : {client['id']}")
     print(f"Created     : {client['created_at']}")
     enroll = _enrollment_status(client.get("allow_to", ""))

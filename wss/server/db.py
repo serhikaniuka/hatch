@@ -32,6 +32,21 @@ def initialize_schema(conn: sqlite3.Connection) -> None:
         CREATE INDEX IF NOT EXISTS idx_certs_client
             ON client_certificates(client_id);
     """)
+    # Migrate: add columns introduced after initial schema.
+    # ALTER TABLE ADD COLUMN does not support UNIQUE — add the index separately.
+    for stmt in [
+        "ALTER TABLE clients ADD COLUMN client_num INTEGER",
+        "ALTER TABLE clients ADD COLUMN hostname TEXT",
+    ]:
+        try:
+            conn.execute(stmt)
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass  # column already exists
+    conn.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS idx_clients_num "
+        "ON clients(client_num) WHERE client_num IS NOT NULL"
+    )
     conn.commit()
 
 
@@ -47,6 +62,30 @@ def create_client(conn: sqlite3.Connection, client_id: str, allow_to: datetime) 
         "INSERT INTO clients (id, allow_to) VALUES (?, ?)",
         (client_id, allow_to.strftime("%Y-%m-%dT%H:%M:%S")),
     )
+    conn.commit()
+
+
+def assign_client_num(conn: sqlite3.Connection, client_id: str) -> int:
+    """Assign the next sequential number to a client if not already set."""
+    row = conn.execute(
+        "SELECT client_num FROM clients WHERE id = ?", (client_id,)
+    ).fetchone()
+    if row and row["client_num"] is not None:
+        return row["client_num"]
+    result = conn.execute(
+        "SELECT COALESCE(MAX(client_num), 0) + 1 FROM clients"
+    ).fetchone()
+    next_num = result[0]
+    conn.execute(
+        "UPDATE clients SET client_num = ? WHERE id = ? AND client_num IS NULL",
+        (next_num, client_id),
+    )
+    conn.commit()
+    return next_num
+
+
+def update_client_hostname(conn: sqlite3.Connection, client_id: str, hostname: str) -> None:
+    conn.execute("UPDATE clients SET hostname = ? WHERE id = ?", (hostname, client_id))
     conn.commit()
 
 

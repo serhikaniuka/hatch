@@ -27,18 +27,19 @@ def create_client(conn: sqlite3.Connection, days: int = 1) -> str:
 
 def list_clients(conn: sqlite3.Connection) -> list[dict]:
     rows = conn.execute("""
-        SELECT c.id, c.allow_to, c.created_at,
+        SELECT c.id, c.client_num, c.hostname, c.allow_to, c.created_at,
                cc.fingerprint, cc.approved_at
         FROM clients c
         LEFT JOIN client_certificates cc ON c.id = cc.client_id
-        ORDER BY c.created_at DESC
+        ORDER BY c.client_num ASC, c.created_at ASC
     """).fetchall()
     return [dict(r) for r in rows]
 
 
 def get_client(conn: sqlite3.Connection, client_id: str) -> Optional[dict]:
     row = conn.execute(
-        "SELECT * FROM clients WHERE id = ?", (client_id,)
+        "SELECT id, client_num, hostname, allow_to, created_at FROM clients WHERE id = ?",
+        (client_id,),
     ).fetchone()
     return dict(row) if row else None
 

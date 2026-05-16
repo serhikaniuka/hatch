@@ -46,7 +46,7 @@ async def connection_handler(
 
     client_id = cert_row["client_id"]
     logger.info("Persistent connection from client %s (%s)", client_id, client_ip)
-    await handle_persistent(websocket, client_id, client_ip, cache, config)
+    await handle_persistent(websocket, client_id, client_ip, cache, config, conn, db_lock)
 
 
 def _get_peer_cert_der(websocket) -> bytes | None:

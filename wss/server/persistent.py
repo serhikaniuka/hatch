@@ -2,12 +2,14 @@ import asyncio
 import base64
 import json
 import logging
+import sqlite3
 from pathlib import Path
 
 import websockets
 
 from .cache import CacheClient
 from .config import ServerConfig
+from .db import assign_client_num, update_client_hostname
 from . import registry
 
 logger = logging.getLogger(__name__)
@@ -70,10 +72,17 @@ async def handle_persistent(
     client_ip: str,
     cache: CacheClient,
     config: ServerConfig,
+    conn: sqlite3.Connection,
+    db_lock: asyncio.Lock,
 ) -> None:
     await cache.set_client_state(client_id, "connected", client_ip)
     await cache.append_recent_connection(client_id, "connected")
-    logger.info("Client %s connected from %s", client_id, client_ip)
+
+    loop = asyncio.get_event_loop()
+    async with db_lock:
+        client_num = await loop.run_in_executor(None, assign_client_num, conn, client_id)
+
+    logger.info("Client #%d %s connected from %s", client_num, client_id, client_ip)
 
     registry.register(client_id, websocket)
     await websocket.send(json.dumps({"type": "CONNECTED", "client_id": client_id}))
@@ -89,11 +98,20 @@ async def handle_persistent(
 
             if msg_type == "SSH_KEY_REGISTER":
                 pub_key = msg.get("public_key", "")
+                hostname = msg.get("hostname", "").strip()
                 if _validate_public_key(pub_key):
                     _install_client_key(config, client_id, pub_key)
-                    logger.info("Registered SSH key for client %s", client_id)
+                    if hostname:
+                        async with db_lock:
+                            await loop.run_in_executor(
+                                None, update_client_hostname, conn, client_id, hostname
+                            )
+                    logger.info(
+                        "Client #%d registered SSH key (host: %s)",
+                        client_num, hostname or "-",
+                    )
                 else:
-                    logger.warning("Client %s sent invalid SSH public key", client_id)
+                    logger.warning("Client #%d sent invalid SSH public key", client_num)
 
             elif msg_type == "PING":
                 await websocket.send(json.dumps({"type": "PONG"}))
@@ -101,21 +119,21 @@ async def handle_persistent(
 
             elif msg_type == "TUNNEL_ESTABLISHED":
                 logger.info(
-                    "Client %s: tunnel established server_port=%s → client_port=%s",
-                    client_id, msg.get("server_port"), msg.get("client_port"),
+                    "Client #%d: tunnel established server_port=%s → client_port=%s",
+                    client_num, msg.get("server_port"), msg.get("client_port"),
                 )
             elif msg_type == "TUNNEL_FAILED":
                 logger.warning(
-                    "Client %s: tunnel failed server_port=%s error=%s",
-                    client_id, msg.get("server_port"), msg.get("error"),
+                    "Client #%d: tunnel failed server_port=%s error=%s",
+                    client_num, msg.get("server_port"), msg.get("error"),
                 )
             elif msg_type == "MESSAGE":
-                logger.info("Message from %s: %s", client_id, msg.get("payload"))
+                logger.info("Message from #%d: %s", client_num, msg.get("payload"))
             else:
-                logger.debug("Unknown message type '%s' from %s", msg_type, client_id)
+                logger.debug("Unknown message type '%s' from #%d", msg_type, client_num)
 
     except websockets.exceptions.ConnectionClosed:
-        logger.info("Client %s disconnected", client_id)
+        logger.info("Client #%d %s disconnected", client_num, client_id)
     finally:
         registry.unregister(client_id)
         _remove_client_key(config, client_id)
