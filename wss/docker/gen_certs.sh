@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CERTS_DIR="$SCRIPT_DIR/certs"
 mkdir -p "$CERTS_DIR"
 
-SERVER_CN="access-manager.kanyuka.info"
+SERVER_CN="${WSS_EXTERNAL_HOST:-access-manager.kanyuka.info}"
 CA_KEY="$CERTS_DIR/ca.key"
 CA_CRT="$CERTS_DIR/ca.crt"
 SERVER_KEY="$CERTS_DIR/server.key"

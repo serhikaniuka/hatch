@@ -20,12 +20,16 @@ services:
       WSS_MEMCACHED_HOST: "127.0.0.1"
       WSS_MEMCACHED_PORT: "11211"
       WSS_MGMT_SOCKET: "tcp://0.0.0.0:8766"
+      WSS_SSH_HOST: "${WSS_EXTERNAL_HOST:-access-manager.kanyuka.info}"
+      WSS_SSH_PORT: "22"
     volumes:
       - ./data:/data
       - ./certs:/certs:ro
     ports:
       - "${WSS_PORT:-8765}:8765"
       - "${WSS_MGMT_PORT:-8766}:8766"
+      - "${WSS_SSH_HOST_PORT:-8022}:22"
+      - "9000-9999:9000-9999"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c",
@@ -43,7 +47,7 @@ services:
     networks:
       - wss
     environment:
-      WSS_SERVER_HOST: "access-manager.kanyuka.info"
+      WSS_SERVER_HOST: "${WSS_EXTERNAL_HOST:-access-manager.kanyuka.info}"
       WSS_SERVER_PORT: "8765"
       WSS_CLIENT_DATA_DIR: /data
       WSS_CLIENT_MGMT_SOCKET: "tcp://0.0.0.0:8767"

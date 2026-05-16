@@ -117,11 +117,12 @@ it is not a separate service and is not reachable from other containers.
 
 Copy `.env.example` to `.env` to customise:
 
-| Variable               | Default | Description                               |
-|------------------------|---------|-------------------------------------------|
-| `WSS_PORT`             | `8765`  | Host port mapped to the WSS server        |
-| `WSS_MGMT_PORT`        | `8766`  | Host port mapped to the server NNG socket |
-| `WSS_CLIENT_MGMT_PORT` | `8767`  | Host port mapped to the client NNG socket |
+| Variable               | Default                        | Description                               |
+|------------------------|--------------------------------|-------------------------------------------|
+| `WSS_EXTERNAL_HOST`    | `access-manager.kanyuka.info`  | Public hostname used for TLS cert CN, SSH tunnel target, and client connection. **Note:** the Docker network alias in `docker-compose.yml` is not variable-substitutable — if you change this value you must also update the `aliases` entry manually. |
+| `WSS_PORT`             | `8765`                         | Host port mapped to the WSS server        |
+| `WSS_MGMT_PORT`        | `8766`                         | Host port mapped to the server NNG socket |
+| `WSS_CLIENT_MGMT_PORT` | `8767`                         | Host port mapped to the client NNG socket |
 
 ## Stopping
 
