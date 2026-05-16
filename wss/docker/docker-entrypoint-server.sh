@@ -21,7 +21,7 @@ export WSS_SERVER_KEY="$CERTS_WORK/server.key"
 # ── SSH setup ──────────────────────────────────────────────────────────────────
 SSH_DIR=/data/ssh
 mkdir -p "$SSH_DIR"
-chmod 700 "$SSH_DIR"
+chmod 755 "$SSH_DIR"
 
 # Generate SSH host keys once (persisted in the bind-mounted /data volume)
 [ -f "$SSH_DIR/ssh_host_rsa_key" ]     || ssh-keygen -q -t rsa     -b 4096 -f "$SSH_DIR/ssh_host_rsa_key"     -N ""
@@ -31,7 +31,7 @@ chmod 700 "$SSH_DIR"
 # Clear on startup; clients re-register their keys when they reconnect.
 : > "$SSH_DIR/authorized_keys"
 chown wss:wss "$SSH_DIR/authorized_keys"
-chmod 600 "$SSH_DIR/authorized_keys"
+chmod 644 "$SSH_DIR/authorized_keys"
 
 # Write sshd_config
 cat > "$SSH_DIR/sshd_config" <<SSHD_EOF
