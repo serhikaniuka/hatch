@@ -18,7 +18,53 @@ export WSS_CA_KEY="$CERTS_WORK/ca.key"
 export WSS_SERVER_CERT="$CERTS_WORK/server.crt"
 export WSS_SERVER_KEY="$CERTS_WORK/server.key"
 
-# Start memcached bound to localhost only; runs alongside the server process
+# ── SSH setup ──────────────────────────────────────────────────────────────────
+SSH_DIR=/data/ssh
+mkdir -p "$SSH_DIR"
+chmod 700 "$SSH_DIR"
+
+# Generate SSH host keys once (persisted in the bind-mounted /data volume)
+[ -f "$SSH_DIR/ssh_host_rsa_key" ]     || ssh-keygen -q -t rsa     -b 4096 -f "$SSH_DIR/ssh_host_rsa_key"     -N ""
+[ -f "$SSH_DIR/ssh_host_ed25519_key" ] || ssh-keygen -q -t ed25519        -f "$SSH_DIR/ssh_host_ed25519_key"  -N ""
+
+# Generate the shared tunnel client key once
+[ -f "$SSH_DIR/tunnel_key" ] || ssh-keygen -q -t ed25519 -f "$SSH_DIR/tunnel_key" -N ""
+
+# Write authorized_keys for the tunnel user (restrict to port-forwarding only)
+echo "restrict,port-forwarding $(cat "$SSH_DIR/tunnel_key.pub")" > "$SSH_DIR/authorized_keys"
+chmod 600 "$SSH_DIR/authorized_keys"
+
+# Write sshd_config
+cat > "$SSH_DIR/sshd_config" <<SSHD_EOF
+Port 2022
+ListenAddress 0.0.0.0
+
+HostKey $SSH_DIR/ssh_host_rsa_key
+HostKey $SSH_DIR/ssh_host_ed25519_key
+
+PermitRootLogin no
+PasswordAuthentication no
+ChallengeResponseAuthentication no
+UsePAM no
+PubkeyAuthentication yes
+AuthorizedKeysFile $SSH_DIR/authorized_keys
+
+AllowTcpForwarding yes
+GatewayPorts yes
+X11Forwarding no
+PermitTunnel no
+AllowStreamLocalForwarding no
+AllowAgentForwarding no
+
+AllowUsers tunnel
+PrintMotd no
+PrintLastLog no
+SSHD_EOF
+
+# Start sshd (stays as root; privilege separation handled by sshd itself)
+/usr/sbin/sshd -f "$SSH_DIR/sshd_config"
+
+# ── Start memcached as wss user ────────────────────────────────────────────────
 gosu wss memcached -l 127.0.0.1 -p 11211 -m 64 &
 
 exec gosu wss python -m server.main
