@@ -87,11 +87,10 @@ async def run_persistent(client_id: str) -> None:
                     await _teardown_all_tunnels()
 
         except (websockets.exceptions.ConnectionClosed, OSError) as exc:
-            wait = min(2 ** attempt, 60)
-            logger.warning("Disconnected (%s). Retrying in %ds ...", exc, wait)
+            logger.warning("Disconnected (%s). Retrying in 300s ...", exc)
             state.update(connection="disconnected")
             attempt += 1
-            await asyncio.sleep(wait)
+            await asyncio.sleep(300)
         except asyncio.CancelledError:
             logger.info("Persistent connection cancelled.")
             state.update(connection="disconnected")
