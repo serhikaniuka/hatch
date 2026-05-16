@@ -25,6 +25,8 @@ from .commands import (
     cmd_connected,
     cmd_server_ping,
     cmd_server_status,
+    cmd_tunnel_open,
+    cmd_tunnel_list,
 )
 from .config import config
 from .nng_client import MgmtClient
@@ -43,6 +45,8 @@ REGISTRY: list[tuple[str, str, str, object]] = [
     ("/connected",      "",                    "Show currently connected clients",        cmd_connected),
     ("/server ping",    "",                    "Check NNG management socket",             cmd_server_ping),
     ("/server status",  "",                    "Show server uptime via NNG",              cmd_server_status),
+    ("/tunnel open",    "<id> <client-port>",  "Open reverse SSH tunnel from client",     cmd_tunnel_open),
+    ("/tunnel list",    "",                    "List reserved tunnel ports",              cmd_tunnel_list),
     ("/exit",           "",                    "Quit",                                    None),
 ]
 
@@ -63,6 +67,10 @@ _COMPLETER = NestedCompleter.from_nested_dict({
     "/server": {
         "ping":   None,
         "status": None,
+    },
+    "/tunnel": {
+        "open": None,
+        "list": None,
     },
     "/exit": None,
 })

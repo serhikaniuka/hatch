@@ -26,3 +26,9 @@ class MgmtClient:
 
     def status(self) -> dict:
         return self._call({"cmd": "status"})
+
+    def tunnel(self, client_id: str, client_port: int) -> dict:
+        return self._call({"cmd": "tunnel", "client_id": client_id, "client_port": client_port})
+
+    def tunnel_list(self) -> dict:
+        return self._call({"cmd": "tunnel_list"})

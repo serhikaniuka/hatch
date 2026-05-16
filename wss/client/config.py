@@ -28,6 +28,14 @@ class ClientConfig:
     def ca_cert_file(self) -> Path:
         return self.data_dir / "ca.crt"
 
+    @property
+    def tunnel_key_file(self) -> Path:
+        return self.data_dir / "tunnel_key"
+
+    @property
+    def tunnel_pub_file(self) -> Path:
+        return self.data_dir / "tunnel_key.pub"
+
     def is_enrolled(self) -> bool:
         return (
             self.client_id_file.exists()

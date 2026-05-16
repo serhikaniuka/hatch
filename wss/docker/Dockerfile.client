@@ -1,5 +1,9 @@
 FROM python:3.13-slim
 
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        openssh-client \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN groupadd -r wss && useradd -r -g wss -d /app -s /sbin/nologin wss
 
 WORKDIR /app

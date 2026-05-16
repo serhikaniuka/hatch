@@ -27,11 +27,10 @@ chmod 700 "$SSH_DIR"
 [ -f "$SSH_DIR/ssh_host_rsa_key" ]     || ssh-keygen -q -t rsa     -b 4096 -f "$SSH_DIR/ssh_host_rsa_key"     -N ""
 [ -f "$SSH_DIR/ssh_host_ed25519_key" ] || ssh-keygen -q -t ed25519        -f "$SSH_DIR/ssh_host_ed25519_key"  -N ""
 
-# Generate the shared tunnel client key once
-[ -f "$SSH_DIR/tunnel_key" ] || ssh-keygen -q -t ed25519 -f "$SSH_DIR/tunnel_key" -N ""
-
-# Write authorized_keys for the tunnel user (restrict to port-forwarding only)
-echo "restrict,port-forwarding $(cat "$SSH_DIR/tunnel_key.pub")" > "$SSH_DIR/authorized_keys"
+# Dynamic authorized_keys managed by the server process at runtime.
+# Clear on startup; clients re-register their keys when they reconnect.
+: > "$SSH_DIR/authorized_keys"
+chown wss:wss "$SSH_DIR/authorized_keys"
 chmod 600 "$SSH_DIR/authorized_keys"
 
 # Write sshd_config
@@ -49,6 +48,7 @@ UsePAM no
 PubkeyAuthentication yes
 AuthorizedKeysFile $SSH_DIR/authorized_keys
 
+StrictModes no
 AllowTcpForwarding yes
 GatewayPorts yes
 X11Forwarding no

@@ -17,6 +17,8 @@ class ServerConfig:
     client_state_ttl: int = int(os.environ.get("WSS_CLIENT_STATE_TTL", "3600"))
     recent_connections_max: int = 100
     mgmt_socket: str = os.environ.get("WSS_MGMT_SOCKET", "tcp://127.0.0.1:8766")
+    ssh_host: str = os.environ.get("WSS_SSH_HOST", "127.0.0.1")
+    ssh_port: int = int(os.environ.get("WSS_SSH_PORT", "8022"))
 
 
 config = ServerConfig()

@@ -42,7 +42,7 @@ async def serve() -> None:
     async with websockets.serve(handler, config.host, config.port, ssl=ssl_ctx):
         await asyncio.gather(
             asyncio.Future(),
-            serve_mgmt(),
+            serve_mgmt(cache),
         )
 
 

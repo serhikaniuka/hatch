@@ -141,6 +141,71 @@ def cmd_server_ping(_args: list[str]) -> None:
     print(f"  Server {status}  ({config.mgmt_socket})")
 
 
+def cmd_tunnel_open(args: list[str]) -> None:
+    """/tunnel open <client-id> <client-port>"""
+    if len(args) < 2:
+        print("  Usage: /tunnel open <client-id> <client-port>")
+        return
+    client_id_prefix, port_str = args[0], args[1]
+    try:
+        client_port = int(port_str)
+    except ValueError:
+        print(f"  Invalid port: {port_str!r}")
+        return
+
+    conn = _db()
+    c = _resolve(conn, client_id_prefix)
+    if c is None:
+        return
+
+    try:
+        resp = MgmtClient(config.mgmt_socket, timeout_ms=5000).tunnel(c["id"], client_port)
+    except Exception as exc:
+        print(f"  Connection failed: {exc}")
+        return
+
+    if not resp.get("ok"):
+        print(f"  Error: {resp.get('error')}")
+        return
+
+    r = resp["result"]
+    print(f"  Tunnel requested ✓")
+    print(f"  Server port : {r['server_port']}")
+    print(f"  Client port : {r['client_port']}")
+    print(f"  SSH target  : {r['ssh_host']}:{r['ssh_port']}")
+    print(f"  Reserved for 12 hours.")
+
+
+def cmd_tunnel_list(_args: list[str]) -> None:
+    """/tunnel list"""
+    try:
+        resp = MgmtClient(config.mgmt_socket, timeout_ms=5000).tunnel_list()
+    except Exception as exc:
+        print(f"  Connection failed: {exc}")
+        return
+
+    if not resp.get("ok"):
+        print(f"  Error: {resp.get('error')}")
+        return
+
+    ports = resp["result"]
+    print()
+    if not ports:
+        print("  No tunnel ports currently reserved.")
+    else:
+        from tabulate import tabulate
+        rows = [[
+            p["port"],
+            p.get("client_id", "-"),
+            p.get("client_port", "-"),
+            p.get("reserved_at", "-"),
+        ] for p in ports]
+        print(tabulate(rows,
+                       headers=["Server port", "Client ID", "Client port", "Reserved at"],
+                       tablefmt="simple"))
+    print()
+
+
 def cmd_server_status(_args: list[str]) -> None:
     """/server status"""
     try:
