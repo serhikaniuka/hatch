@@ -29,8 +29,23 @@ def _cache():
 
 
 def _resolve(conn, token: str) -> dict | None:
-    """Match a full UUID or an unambiguous UUID prefix."""
+    """Match by client number (#N or N), full UUID, or unambiguous UUID prefix."""
     clients = list_clients(conn)
+
+    # #N or bare integer → match client_num
+    num_str = token.lstrip("#")
+    if num_str.isdigit():
+        num = int(num_str)
+        hits = [c for c in clients if c.get("client_num") == num]
+        if len(hits) == 1:
+            return hits[0]
+        if not hits:
+            print(f"  No client with number #{num}.")
+        else:
+            print(f"  Ambiguous: multiple clients with number #{num}.")
+        return None
+
+    # UUID prefix
     hits = [c for c in clients if c["id"].startswith(token)]
     if len(hits) == 1:
         return hits[0]
